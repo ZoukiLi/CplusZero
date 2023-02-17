@@ -61,11 +61,18 @@ impl Printable for Shape {
     }
 }
 
+fn display<T: Printable>(x: T) {
+    x.print();
+}
+
 fn main() {
     let v = [Shape::Point(Point { x: 1, y: 2 }), Shape::Circle(Circle { center: Point { x: 3, y: 4 }, radius: 5 })];
     for shape in v {
         shape.print();
     }
+    
+    let p = Point { x: 1, y: 2 };
+    display::<Point>(p);
 }
 
 ```
@@ -115,6 +122,10 @@ void Shape_print(struct Shape* self) {
     }
 }
 
+void Point_display(struct Point* x) {
+    Point_print(x);
+}
+
 int main() {
     struct Shape v[] = {
         { .type = Point, .Point = { .x = 1, .y = 2 } },
@@ -123,5 +134,8 @@ int main() {
     for (int i = 0; i < sizeof(v) / sizeof(v[0]); i++) {
         Shape_print(&v[i]);
     }
+    
+    struct Point p = { .x = 1, .y = 2 };
+    Point_display(&p);
 }
 ```
