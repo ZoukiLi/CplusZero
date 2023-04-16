@@ -1,0 +1,373 @@
+//
+// Created by intellij-pest on 2023-04-12
+// grammar
+// Author: zkr
+//
+
+//! Pest grammar for rust-like language.
+//! This language now only supports:
+//!   - declaration of enum, struct, and function.
+//!   - implementation of enum and struct.
+//!   - generic type.
+//!
+//! All keywords are same as rust.
+//! Comments, literals, and operators are same as rust.
+
+//! A simple example:
+//! ```
+//! enum Option<T> {
+//!     Some(T),
+//!     None,
+//! }
+//!
+//! impl<T> Option<T> {
+//!     pub fn is_some(&self) -> bool;
+//!     pub fn is_none(&self) -> bool;
+//!     fn unwrap(self) -> T;
+//! }
+//!
+//! struct ExampleStruct {
+//!     a: i32,
+//!     b: i32,
+//! }
+//!
+//! impl ExampleStruct {
+//!     pub fn new(a: i32, b: i32) -> ExampleStruct;
+//!     fn private_method(&self);
+//! }
+//!
+//! enum ExampleEnum {
+//!     A,
+//!     B(ExampleStruct),
+//!     C(i32),
+//! }
+//!
+//! impl ExampleEnum {
+//!     pub fn new() -> ExampleEnum;
+//! }
+
+//! struct Vec<T> {
+//!     data: *mut T,
+//!     len: usize,
+//!     cap: usize,
+//! }
+
+//! impl<T> Vec<T> {
+//!     pub fn new_with_capacity(capacity: usize) -> Self;
+//!     pub fn push(&mut self, value: T);
+//!     pub fn pop(&mut self) -> Option<T>;
+//!     pub fn get(&self, index: usize) -> Option<&T>;
+//!     pub fn len(&self) -> usize;
+//!     pub fn capacity(&self) -> usize;
+//!     pub fn is_empty(&self) -> bool;
+//!     pub fn clear(&mut self);
+//!     pub fn free(&mut self);
+//!     fn grow(&mut self);
+//! }
+//! ```
+
+//! The above example currently covers nearly all main features of this language.
+
+// The following is the pest grammar for rust-like language.
+// The grammar is based on the rust grammar, but is simplified and modified.
+
+
+// 2. Lexical structure
+// 2.2 keywords
+KW_ENUM = { "enum" }
+KW_STRUCT = { "struct" }
+KW_IMPL = { "impl" }
+KW_PUB = { "pub" }
+KW_FN = { "fn" }
+KW_SELF_VALUE = { "self" }
+KW_SELF_TYPE = { "Self" }
+KW_MUT = { "mut" }
+
+/// A keyword is a reserved word that cannot be used as an identifier.
+KEY_WORDS = _{ KW_ENUM | KW_STRUCT | KW_IMPL | KW_PUB | KW_FN | KW_SELF_TYPE | KW_SELF_VALUE | KW_MUT }
+
+// 2.3 Identifiers
+/// An identifier is a sequence of XID_Start and then XID_Continue characters
+/// or _ and then non-zero number of XID_Continue characters.
+IDENT = @{ !KEY_WORDS ~ (XID_START ~ XID_CONTINUE*) | "_" ~ XID_CONTINUE+ }
+
+// 2.4 Comments
+LINE_COMMENT = _{ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE? }
+BLOCK_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+COMMENT = _{ LINE_COMMENT | BLOCK_COMMENT }
+
+// 2.5 Whitespace
+WHITESPACE = _{ " " | "\t" | "\r" | "\n"
+                | "\u{000B}" | "\u{000C}" | "\u{000D}" | "\u{0085}"
+                | "\u{200E}" | "\u{200F}" | "\u{2028}" | "\u{2029}" }
+
+
+// 3. Macros (unsupported)
+
+
+// 4. Crates and source files
+/// The upper level of the grammar.
+/// A program is a sequence of inner attributes, items, and end of input.
+Program = { SOI ~ InnerAttr* ~ Item* ~ EOI }
+
+
+// 5. Conditional compilation (unsupported)
+
+
+// 6. Items
+/// item has outer attributes and vis_item or macro_item
+Item = { OuterAttr* ~ (VisItem | MacroItem) }
+
+/// VisItem is a visibility item.
+/// Now only supports enum, struct, impl, and function.
+VisItem = { Vis? ~ (
+    Enumeration
+    | Struct
+    | Implementation
+    | Function
+) }
+
+/// MacroItem is now unsupported, never used.
+MacroItem = { !ANY }
+
+// 6.4 Functions
+/// A function consists of a block, along with a name, a set of parameters, and an output type.
+/// Other than a name, all these are optional.
+/// Functions are declared with the keyword fn.
+/// Functions may declare a set of input variables as parameters,
+/// through which the caller passes arguments into the function,
+/// and the output type of the value the function will return to its caller on completion.
+/// If the output type is not explicitly stated, it is the unit type.
+
+/// FunctionQualifiers are now unsupported.
+/// Now a function can not have body, and where clause is not supported.
+Function = { KW_FN ~ IDENT ~ GenericParams?
+    ~ "(" ~ FunctionParams? ~ ")"
+    ~ FunctionReturnType?
+    ~ ";"
+}
+
+/// FunctionParams is a non-empty sequence of function parameters separated by comma,
+/// where the first can be self, and the last can have optional comma.
+FunctionParams = {
+    SelfParam ~ ","?
+    | (SelfParam ~ ",")? ~ FunctionParam ~ ("," ~ FunctionParam)* ~ ","?
+}
+
+/// FunctionReturnType is declared with "->" and a type.
+FunctionReturnType = { "->" ~ Type }
+
+/// SelfParam is a self parameter by reference or by value.
+/// TypedSelf is not supported.
+SelfParam = { OuterAttr* ~ ShorthandSelfParam }
+
+/// ShorthandSelfParam is a self parameter by reference or by value.
+/// Lifetime is not supported.
+ShorthandSelfParam = { "&"? ~ KW_ENUM? ~ KW_SELF_VALUE }
+
+/// Function parameters are irrefutable patterns,
+/// so any pattern that is valid in an else-less let binding is also valid as a parameter.
+FunctionParam = { OuterAttr* ~ FunctionParamPattern }
+
+/// FunctionParamPattern is a no-top-alt pattern.
+FunctionParamPattern = { PatternNoTopAlt ~ ":" ~ Type }
+
+// 6.6 Structs
+/// A struct is a nominal struct type defined with the keyword struct.
+/// Tuple struct and unit struct are also supported.
+/// But non-unit structs must have at least one field.
+Struct = { StructStruct | TupleStruct }
+
+/// StructStruct is a struct with named fields or unit struct.
+StructStruct = { KW_STRUCT ~ IDENT ~ GenericParams? ~ ("{" ~ StructFields ~ "}") | ";" }
+
+/// StructFields is a non-empty sequence of struct fields separated by comma,
+/// where the last field can have optional comma.
+StructFields = { StructField ~ ("," ~ StructField)* ~ ","? }
+
+/// StructField is a identifier and type pair with optional attributes and visibility.
+StructField = { OuterAttr* ~ Vis? ~ IDENT ~ ":" ~ Type }
+
+/// TupleStruct is a struct with type-only fields.
+TupleStruct = { KW_STRUCT ~ IDENT ~ GenericParams? ~ "(" ~ TupleFields ~ ")" }
+
+/// TupleFields is a non-empty sequence of tuple fields separated by comma,
+/// where the last field can have optional comma.
+TupleFields = { TupleField ~ ("," ~ TupleField)* ~ ","? }
+
+/// TupleField is a type with optional attributes and visibility.
+TupleField = { OuterAttr* ~ Vis? ~ Type }
+
+// 6.7 Enumerations
+/// An enumeration, also referred to as an enum,
+/// is a simultaneous definition of a nominal enumerated type as well as a set of constructors,
+/// that can be used to create or pattern-match values of the corresponding enumerated type.
+/// Zero-variance is not supported.
+Enumeration = { KW_ENUM ~ IDENT ~ GenericParams? ~ "{" ~ EnumItems ~ "}" }
+
+/// EnumItems is a non-empty sequence of enum items separated by comma,
+/// where the last item can have optional comma.
+EnumItems = { EnumItem ~ ("," ~ EnumItem)* ~ ","? }
+
+/// EnumItem is an enum item.
+/// Currently tuple enum item is the only supported enum item,
+/// while struct enum item and discriminant are not supported.
+/// Visibility is public by default.
+EnumItem = { OuterAttr* ~ Vis? ~ IDENT ~ EnumItemTuple? }
+
+/// EnumItemTuple is TupleFields surrounded by parentheses.
+EnumItemTuple = { "(" ~ TupleFields ~ ")" }
+
+// 6.12 Implementations
+/// An implementation is an item that associates items with an implementing type.
+/// Implementations are defined with the keyword impl and contain functions
+/// that belong to an instance of the type or to the type statically.
+Implementation = { InherentImpl | TraitImpl }
+
+/// Now trait implementation is not supported.
+TraitImpl = { !ANY }
+
+/// An inherent implementation is defined as the sequence of
+/// the impl keyword, generic type declarations,
+/// a path to a nominal type,
+/// a where clause (not supported),
+/// and a bracketed set of items.
+InherentImpl = {
+    KW_IMPL ~ GenericParams? ~ TypePath ~ "{"
+        ~ InnerAttr*
+        ~ AssociatedItem*
+    ~ "}"
+}
+
+// 6.14 Generic parameters
+/// Functions, type aliases, structs, enumerations, unions, traits, and implementations
+/// may be parameterized by types, constants, and lifetimes.
+/// These parameters are listed in angle brackets (<...>),
+/// usually immediately after the name of the item and before its definition.
+GenericParams = {
+    "<" ~ ">"
+    | "<" ~ GenericParam ~ ("," ~ GenericParam)* ~ ","? ~ ">"
+}
+
+/// GenericParam now only supports type parameter.
+/// Lifetime and const parameter are not supported.
+GenericParam = { OuterAttr* ~ TypeParam }
+
+/// TypeParam is a type parameter.
+/// Trait bounds are not supported.
+/// Default type is not supported.
+TypeParam = { IDENT }
+
+// 6.15 Associated items
+/// Associated Items are the items declared in traits or defined in implementations.
+/// They are called this because they are defined on an associate type — the type in the implementation.
+/// They are a subset of the kinds of items that can be declared in a module.
+/// Specifically, there are:
+/// associated functions (including methods)
+/// associated types (not supported)
+/// associated constants (not supported)
+AssociatedItem = { OuterAttr* ~ (Vis ~ Function) }
+
+
+// 7. Attributes
+/// InnerAttr applies to the item that the attribute is declared within.
+InnerAttr = { "#" ~ "!" ~ "[" ~ Attr ~ "]" }
+
+/// OuterAttr applies to the item that the attribute is declared before.
+OuterAttr = { "#" ~ "[" ~ Attr ~ "]" }
+
+/// The attribute consists of a path to the attribute,
+/// followed by an optional delimited token tree whose interpretation is defined by the attribute.
+/// But now only supports ident in the attribute.
+Attr = { IDENT }
+
+
+// 8. Statements and expressions (not supported)
+
+
+// 9. Patterns
+
+/// Patterns are used to match values against structures
+/// and to, optionally, bind variables to values inside these structures.
+/// They are also used in variable declarations and parameters for functions and closures.
+Pattern = { "|"? ~ PatternNoTopAlt ~ ("|" ~ PatternNoTopAlt)* }
+
+/// PatternNoTopAlt is a pattern without '|' at the top level.
+/// Now RangePattern is not supported.
+PatternNoTopAlt = {
+    PatternWithoutRange
+    | RangePattern
+}
+
+/// PatternWithoutRange is a pattern without range pattern.
+PatternWithoutRange = {
+    IdentifierPattern
+}
+
+/// Identifier patterns bind the value they match to a variable.
+/// The identifier must be unique within the pattern.
+IdentifierPattern = { KW_MUT? ~ IDENT }
+
+/// Range patterns match scalar values within the range defined by their bounds.
+/// A bound on the left of its sigils is a lower bound.
+/// A bound on the right is an upper bound.
+/// A range pattern may be closed or half-open.
+RangePattern = { !ANY }
+
+
+// 10. Type system
+
+// 10.1 Types
+/// Type can be bounded or not.
+/// Now only type with no bounds is supported.
+Type = { TypeNoBounds }
+
+/// TypeNoBounds is a type without bounds.
+/// Now only path, tuple, reference are supported.
+TypeNoBounds = {
+    TypePath
+    | TupleType
+    | ReferenceType
+}
+
+// 10.1.5 Tuple types
+/// Tuple types are a family of structural types for heterogeneous lists of other types.
+/// The syntax for a tuple type is a parenthesized, comma-separated list of types.
+/// 1-ary tuples require a comma after their element type to be disambiguated with a parenthesized type.
+TupleType = {
+    "(" ~ ")" // empty tuple
+    | "(" ~ (Type ~ ",")+ ~ Type? ~ ")" // non-empty tuple with no last comma except 1-ary tuple
+}
+
+// 10.1.13 Pointer types
+/// References (& and &mut).
+/// Lifetime is not supported.
+ReferenceType = { "&" ~ KW_MUT? ~ TypeNoBounds }
+
+
+// 12. Names
+
+// 12.4 Paths
+/// Type paths are used within type definitions, trait bounds, type parameter bounds, and qualified paths.
+TypePath = { "::"? ~ TypePathSegment ~ ("::" ~ TypePathSegment)* }
+
+/// TypePathSegment is a path segment with optional generic arguments.
+/// Function pointer is not supported.
+TypePathSegment = { PathIdentSegment ~ "::"? ~ GenericArgs? }
+
+/// PathIdentSegment is a path segment with identifier.
+PathIdentSegment = { IDENT | KW_SELF_TYPE | KW_SELF_VALUE }
+
+/// GenericArgs is a sequence of generic arguments surrounded by angle brackets.
+GenericArgs = {
+    "<" ~ ">" // empty generic arguments
+    | "<" ~ (GenericArg ~ ",")* ~ GenericArg ~ "," ~ ">" // non-empty generic arguments with last comma optional
+}
+
+/// GenericArg is a type or lifetime.
+/// Now lifetime is not supported.
+GenericArg = { Type }
+
+// 12.6 Visibility and privacy
+/// Visibility is currently only supports pub.
+Vis = { KW_PUB }

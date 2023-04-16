@@ -1,0 +1,19 @@
+struct ExampleStruct {
+    a: i32,
+    b: i32,
+}
+
+impl ExampleStruct {
+    pub fn new(a: i32, b: i32) -> ExampleStruct;
+    fn private_method(&self);
+}
+
+enum ExampleEnum {
+    A,
+    B(ExampleStruct),
+    C(i32),
+}
+
+impl ExampleEnum {
+    pub fn new() -> ExampleEnum;
+}

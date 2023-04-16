@@ -1,0 +1,18 @@
+struct Vec<T> {
+    data: *mut T,
+    len: usize,
+    cap: usize,
+}
+
+impl<T> Vec<T> {
+    pub fn new_with_capacity(capacity: usize) -> Self;
+    pub fn push(&mut self, value: T);
+    pub fn pop(&mut self) -> Option<T>;
+    pub fn get(&self, index: usize) -> Option<&T>;
+    pub fn len(&self) -> usize;
+    pub fn capacity(&self) -> usize;
+    pub fn is_empty(&self) -> bool;
+    pub fn clear(&mut self);
+    pub fn free(&mut self);
+    fn grow(&mut self);
+}

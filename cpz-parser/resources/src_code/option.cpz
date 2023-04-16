@@ -1,0 +1,10 @@
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+impl<T> Option<T> {
+    pub fn is_some(&self) -> bool;
+    pub fn is_none(&self) -> bool;
+    fn unwrap(self) -> T;
+}

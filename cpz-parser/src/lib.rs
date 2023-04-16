@@ -1,14 +1,12 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+//! parser crate for cpluszero.
+//! using pest crate
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use parser::*;
+
+mod parser;
+pub mod ast;
+
