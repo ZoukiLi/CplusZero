@@ -1,5 +1,5 @@
 struct Vec<T> {
-    data: *mut T,
+    data: &mut T,
     len: usize,
     cap: usize,
 }
