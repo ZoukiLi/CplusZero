@@ -1,0 +1,114 @@
+KW_ENUM       = { "enum" }
+KW_STRUCT     = { "struct" }
+KW_IMPL       = { "impl" }
+KW_PUB        = { "pub" }
+KW_FN         = { "fn" }
+KW_SELF_VALUE = { "self" }
+KW_SELF_TYPE  = { "Self" }
+KW_MUT        = { "mut" }
+KEY_WORDS = _{ KW_ENUM | KW_STRUCT | KW_IMPL | KW_PUB | KW_FN | KW_SELF_TYPE | KW_SELF_VALUE | KW_MUT }
+IDENT = @{ !KEY_WORDS ~ (XID_START ~ XID_CONTINUE*) | "_" ~ XID_CONTINUE+ }
+LINE_COMMENT  = _{ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE? }
+BLOCK_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+COMMENT       = _{ LINE_COMMENT | BLOCK_COMMENT }
+WHITESPACE = _{
+    " "
+  | "\t"
+  | "\r"
+  | "\n"
+  | "\u{000B}"
+  | "\u{000C}"
+  | "\u{000D}"
+  | "\u{0085}"
+  | "\u{200E}"
+  | "\u{200F}"
+  | "\u{2028}"
+  | "\u{2029}"
+}
+Program = { SOI ~ InnerAttr* ~ Item* ~ EOI }
+Item = { OuterAttr* ~ (VisItem | MacroItem) | ItemError }
+ItemError = {
+    ErrorStart? ~ ErrorPart? ~ ErrorStop
+  | ErrorStart? ~ ErrorPart
+  | ErrorStart ~ ErrorPart?
+}
+VisItem = {
+    Vis? ~ (Enumeration | Struct | Implementation | Function)
+}
+MacroItem = { !ANY ~ ANY }
+Function = {
+    KW_FN ~ IDENT ~ GenericParams? ~ "(" ~ FunctionParams? ~ ")" ~ FunctionReturnType? ~ ";"
+  | FunctionError
+}
+FunctionError = {
+    KW_FN ~ IDENT ~ GenericParams? ~ ErrorPart? ~ ";"?
+  | KW_FN ~ ErrorPart? ~ ";"?
+}
+FunctionParams = {
+    (SelfParam ~ ",")? ~ FunctionParam ~ ("," ~ FunctionParam)* ~ ","?
+  | SelfParam ~ ","?
+}
+FunctionReturnType = { "->" ~ Type }
+SelfParam = { OuterAttr* ~ ShorthandSelfParam }
+ShorthandSelfParam = { "&"? ~ KW_MUT? ~ KW_SELF_VALUE }
+FunctionParam = { OuterAttr* ~ FunctionParamPattern }
+FunctionParamPattern = { PatternNoTopAlt ~ ":" ~ Type }
+Struct = { StructStruct | TupleStruct }
+StructStruct = { KW_STRUCT ~ IDENT ~ GenericParams? ~ ("{" ~ StructFields ~ "}" | ";") }
+StructFields = { StructField ~ ("," ~ StructField)* ~ ","? }
+StructField = { OuterAttr* ~ Vis? ~ IDENT ~ ":" ~ Type }
+TupleStruct = { KW_STRUCT ~ IDENT ~ GenericParams? ~ "(" ~ TupleFields ~ ")" ~ ";" }
+TupleFields = { TupleField ~ ("," ~ TupleField)* ~ ","? }
+TupleField = { OuterAttr* ~ Vis? ~ Type }
+Enumeration = { KW_ENUM ~ IDENT ~ GenericParams? ~ "{" ~ EnumItems ~ "}" }
+EnumItems = { EnumItem ~ ("," ~ EnumItem)* ~ ","? }
+EnumItem = { OuterAttr* ~ Vis? ~ IDENT ~ EnumItemTuple? }
+EnumItemTuple = { "(" ~ TupleFields ~ ")" }
+Implementation = { InherentImpl | TraitImpl }
+TraitImpl = { !ANY ~ ANY }
+InherentImpl = {
+    KW_IMPL ~ GenericParams? ~ Type ~ "{" ~ InnerAttr* ~ AssociatedItem* ~ "}"
+}
+GenericParams = {
+    "<" ~ ">"
+  | "<" ~ GenericParam ~ ("," ~ GenericParam)* ~ ","? ~ ">"
+}
+GenericParam = { OuterAttr* ~ TypeParam }
+TypeParam = { IDENT }
+AssociatedItem = { OuterAttr* ~ (Vis? ~ Function) }
+InnerAttr = { "#" ~ "!" ~ "[" ~ Attr ~ "]" }
+OuterAttr = { "#" ~ "[" ~ Attr ~ "]" }
+Attr = { IDENT }
+Pattern = { "|"? ~ PatternNoTopAlt ~ ("|" ~ PatternNoTopAlt)* }
+PatternNoTopAlt = {
+    PatternWithoutRange
+  | RangePattern
+}
+PatternWithoutRange = {
+    IdentifierPattern
+}
+IdentifierPattern = { KW_MUT? ~ IDENT }
+RangePattern = { !ANY ~ ANY }
+Type = { TypeNoBounds }
+TypeNoBounds = {
+    TypePath
+  | TupleType
+  | ReferenceType
+}
+TupleType = {
+    "(" ~ ")"
+  | "(" ~ (Type ~ ",")+ ~ Type? ~ ")"
+}
+ReferenceType = { "&" ~ KW_MUT? ~ TypeNoBounds }
+TypePath = { "::"? ~ TypePathSegment ~ ("::" ~ TypePathSegment)* }
+TypePathSegment = { PathIdentSegment ~ "::"? ~ GenericArgs? }
+PathIdentSegment = { IDENT | KW_SELF_TYPE | KW_SELF_VALUE }
+GenericArgs = {
+    "<" ~ ">"
+  | "<" ~ (GenericArg ~ ",")* ~ GenericArg ~ ","? ~ ">"
+}
+GenericArg = { Type }
+Vis = { KW_PUB }
+ErrorPart = { (!ErrorStart ~ !ErrorStop ~ ANY)+ }
+ErrorStop = { "}" | ";" }
+ErrorStart = { OuterAttr* ~ Vis? ~ (KW_FN | KW_STRUCT | KW_ENUM | KW_IMPL) }

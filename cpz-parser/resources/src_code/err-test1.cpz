@@ -1,9 +1,9 @@
 // enum with empty body
 enum EmptyEnum {
-}
+
 
 // enum with discriminant
-enum EnumWithDiscriminant {
+pub enum EnumWithDiscriminant {
     A = 1,
     B = 2,
     C = 3,
@@ -12,3 +12,27 @@ enum EnumWithDiscriminant {
 // struct with empty body
 struct EmptyStruct {
 }
+
+pub enum 枚举1 {
+    X(B),
+    Y,
+    中文
+struct B;
+;
+fn A(
+pub fn B<T1, T2>(...)->C;
+fn B2<T2>()->B::C<T>;
+#[xxxx]
+#[yyyy]
+pub struct X;
+pub st
+pbu struct
+pub struct C(
+#[属性]
+pub struct D(A,B);
+
+impl A {
+fn A(}
+fn B();
+}
+foobar
